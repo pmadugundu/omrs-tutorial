@@ -24,3 +24,5 @@ Execute the following steps on both the web servers to register the server to th
 Send a term from the source server:
 - http://localhost:9080/TestOmrsServer_gradle/abc/open-metadata/crud?action=new_term
 
+Verify that the log messages in the receicing server has the following message:
+`"displayName":{"primitiveDefCategory":"OM_PRIMITIVE_TYPE_STRING","primitiveValue":"Term Name","instancePropertyCategory":"PRIMITIVE","typeGUID":"b34a64b9-554a-42b1-8f8a-7d5c2339f9c4","typeName":"string"}`
