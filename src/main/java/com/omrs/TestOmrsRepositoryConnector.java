@@ -13,17 +13,8 @@ import org.odpi.openmetadata.repositoryservices.connectors.stores.metadatacollec
  * used by the EnterpriseOMRSRepositoryConnector to make a direct call to the local repository.
  */
 public class TestOmrsRepositoryConnector extends OMRSRepositoryConnector {
-    /**
-     * Default constructor used by the OCF Connector Provider.
-     */
-    public TestOmrsRepositoryConnector() {
-        /*
-         * Nothing to do (yet !)
-         */
-    }
 
-
-    /**
+	/**
      * Set up the unique Id for this metadata collection.
      *
      * @param metadataCollectionId - String unique Id
