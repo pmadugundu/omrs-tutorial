@@ -12,7 +12,6 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Response;
 
 import org.apache.commons.lang3.StringUtils;
@@ -58,6 +57,7 @@ public class OpenMetadataResource {
 	public static final String serverName = "TestOmrsServer";
     public static final String KAFKA_PRODUCER = "producer";
     public static final String KAFKA_CONSUMER = "consumer";
+    public static final String TOPIC_URL_ROOT = "egeria.omag";
 
 	private static final ConnectorConfigurationFactory factory = new ConnectorConfigurationFactory();
     private static final OMAGServerAdminServices adminAPI = new OMAGServerAdminServices();
@@ -73,9 +73,7 @@ public class OpenMetadataResource {
 	public Response registerCohort(
 			@Parameter(description = "name of the cohort", required = true) @PathParam("cohort_name") String cohortName,
 	        @Parameter(description = "name/value pairs used to configure the connection to the event bus connector",
-	                   required = false) Map<String, Object> configProperties,
-	        @Parameter(description = "common root of the topics used by the open metadata server",
-	                   required = false) @QueryParam("topic_url_root") String topicURLRoot) {
+	                   required = false) Map<String, Object> configProperties) {
 		
 		createConfigurationStore();
 		
@@ -87,7 +85,7 @@ public class OpenMetadataResource {
         adminAPI.setOrganizationName(userId, serverName, "ABC");
         adminAPI.setServerURLRoot(userId, serverName, "http://localhost:9080/egeria");
 
-        addCohortConfig(cohortName, topicURLRoot, configProperties);
+        addCohortConfig(cohortName, configProperties);
 
         OMAGServerConfigResponse response = adminAPI.getStoredConfiguration(userId, serverName);
 		return Response.ok().entity(response).status(200).build();
@@ -224,7 +222,7 @@ public class OpenMetadataResource {
         adminAPI.setRepositoryProxyEventMapper(userId, serverName, connection);
     }
 
-    private void addCohortConfig(String cohortName, String topicURLRoot, Map<String, Object> configProperties)  {
+    private void addCohortConfig(String cohortName, Map<String, Object> configProperties)  {
     	
         if (configProperties.size() != 2 || !configProperties.containsKey(KAFKA_PRODUCER)
                 || !configProperties.containsKey(KAFKA_CONSUMER)) {
@@ -236,7 +234,7 @@ public class OpenMetadataResource {
         userId = metadataCollectionId + "_admin";
         String localServerId = omagServerConfig.getLocalServerId();
         configProperties.put("local.server.id", localServerId);
-        CohortConfig cohortConfig = createCohortConfig(cohortName, topicURLRoot, configProperties);
+        CohortConfig cohortConfig = createCohortConfig(cohortName, configProperties);
         adminAPI.setCohortConfig(userId, serverName, cohortName, cohortConfig);
     }
     
@@ -245,27 +243,26 @@ public class OpenMetadataResource {
     }
 
 
-    private CohortConfig createCohortConfig(String cohortName, String topicURLRoot,
-        Map<String, Object> additionalProperties) {
+    private CohortConfig createCohortConfig(String cohortName, Map<String, Object> additionalProperties) {
         
         CohortConfig cohortConfig = new CohortConfig();
         cohortConfig.setCohortName(cohortName);
         cohortConfig.setCohortOMRSTopicProtocolVersion(OpenMetadataEventProtocolVersion.V1);
         cohortConfig.setEventsToProcessRule(OpenMetadataExchangeRule.ALL);
-        cohortConfig.setCohortRegistryConnection(createRegistryConnection(metadataCollectionId, cohortName, topicURLRoot));
+        cohortConfig.setCohortRegistryConnection(createRegistryConnection(metadataCollectionId, cohortName));
         cohortConfig.setCohortOMRSTopicConnection(
-        		createCohortOMRSTopicConnection(cohortName, topicURLRoot, additionalProperties));
+        		createCohortOMRSTopicConnection(cohortName, additionalProperties));
         return cohortConfig;
     }
 
-    private Connection createRegistryConnection(String repoId, String cohortName, String topicURLRoot) {
+    private Connection createRegistryConnection(String repoId, String cohortName) {
         Connection connection = new Connection();
-        ConnectorType connectorType = createConnectorType(cohortName, topicURLRoot, "DefaultCohortRegistry.ConnectorType.");
+        ConnectorType connectorType = createConnectorType(cohortName, TOPIC_URL_ROOT, "DefaultCohortRegistry.ConnectorType.");
         connectorType.setDescription("OMRS default cohort registry connector type.");
         connectorType.setConnectorProviderClassName(OmrsRegistryProvider.class.getName());
         connection.setConnectorType(connectorType);
         
-        Endpoint endPoint = createEndpoint(cohortName, topicURLRoot, "DefaultCohortRegistry.Endpoint.");
+        Endpoint endPoint = createEndpoint(cohortName, "DefaultCohortRegistry.Endpoint.");
         
         StringBuilder address = new StringBuilder();
         address.append(repoId + "_omag_");
@@ -283,9 +280,7 @@ public class OpenMetadataResource {
         if (!StringUtils.isEmpty(cohortName)) {
             name.append("." + cohortName);
         }
-        if (!StringUtils.isEmpty(topicURLRoot)) {
-            name.append("." + topicURLRoot);
-        }
+        name.append("." + TOPIC_URL_ROOT);
         connection.setQualifiedName(name.toString());
         connection.setDisplayName(name.toString());
         connection.setDescription("OMRS default cohort registry connection.");
@@ -295,11 +290,10 @@ public class OpenMetadataResource {
         return connection;
     }
 
-    private static VirtualConnection createCohortOMRSTopicConnection(String cohortName,
-        String topicURLRoot, Map<String, Object> additionalProperties) {
+    private static VirtualConnection createCohortOMRSTopicConnection(String cohortName, Map<String, Object> additionalProperties) {
         
         VirtualConnection virtualConnection = new VirtualConnection();
-        ConnectorType connectorType = createConnectorType(cohortName, topicURLRoot, "DefaultCohortTopic.ConnectorType.");
+        ConnectorType connectorType = createConnectorType(cohortName, TOPIC_URL_ROOT, "DefaultCohortTopic.ConnectorType.");
         connectorType.setDescription("OMRS default cohort topic connector type.");
         connectorType.setConnectorProviderClassName("org.odpi.openmetadata.repositoryservices.connectors.omrstopic.OMRSTopicProvider");
         virtualConnection.setConnectorType(connectorType);
@@ -309,9 +303,7 @@ public class OpenMetadataResource {
         if (!StringUtils.isEmpty(cohortName)) {
             name.append("." + cohortName);
         }
-        if (!StringUtils.isEmpty(topicURLRoot)) {
-            name.append("." + topicURLRoot);
-        }
+        name.append("." + TOPIC_URL_ROOT);
         virtualConnection.setQualifiedName(name.toString());
         virtualConnection.setDisplayName(name.toString());
         virtualConnection.setDescription("OMRS default cohort topic connection.");
@@ -319,7 +311,7 @@ public class OpenMetadataResource {
         virtualConnection.setType(setConfigurationAsOrigin(VirtualConnection.getVirtualConnectionType())); //createTypeForVirtualConnection());
         
         EmbeddedConnection embeddedConnection = new EmbeddedConnection();
-        embeddedConnection.setEmbeddedConnection(createEmbeddedConnection(cohortName, topicURLRoot, additionalProperties));
+        embeddedConnection.setEmbeddedConnection(createEmbeddedConnection(cohortName, additionalProperties));
         embeddedConnection.setDisplayName(cohortName + " OMRS Topic");
         
         virtualConnection.setEmbeddedConnections(Arrays.asList(embeddedConnection));
@@ -327,8 +319,7 @@ public class OpenMetadataResource {
         return virtualConnection;
     }
 
-    private static Connection createEmbeddedConnection(String cohortName, String topicURLRoot,
-        Map<String, Object> configurationProperties) {
+    private static Connection createEmbeddedConnection(String cohortName, Map<String, Object> configurationProperties) {
         
         Connection connection = new Connection();
         ConnectorType connectorType = createConnectorType(null, null, "Kafka Open Metadata Topic Connector");
@@ -338,8 +329,8 @@ public class OpenMetadataResource {
         connection.setConnectorType(connectorType);
         
         String prefix = "openmetadata.repositoryservices.cohort.";
-        Endpoint endPoint = createEndpoint(cohortName, topicURLRoot, prefix);
-        StringBuilder address = buildOMRSTopicAddress(topicURLRoot, prefix, cohortName);
+        Endpoint endPoint = createEndpoint(cohortName, prefix);
+        StringBuilder address = buildOMRSTopicAddress(prefix, cohortName);
         endPoint.setAddress(address.toString());
         connection.setEndpoint(endPoint);
         
@@ -353,11 +344,8 @@ public class OpenMetadataResource {
         return connection;
     }
     
-    private static StringBuilder buildOMRSTopicAddress(String topicURLRoot,String prefix, String cohortName) {
-        StringBuilder address = new StringBuilder();
-        if (!StringUtils.isEmpty(topicURLRoot)) {
-            address.append(topicURLRoot + ".");
-        }
+    private static StringBuilder buildOMRSTopicAddress(String prefix, String cohortName) {
+        StringBuilder address = new StringBuilder(TOPIC_URL_ROOT + ".");
         if (!StringUtils.isEmpty(prefix)) {
             address.append(prefix);
         }
@@ -393,7 +381,7 @@ public class OpenMetadataResource {
         return connectorType;
     }
     
-    private static Endpoint createEndpoint(String cohortName, String topicURLRoot, String prefix) {
+    private static Endpoint createEndpoint(String cohortName, String prefix) {
             
             Endpoint endPoint = new Endpoint();
             StringBuilder name = new StringBuilder();
@@ -403,9 +391,7 @@ public class OpenMetadataResource {
             if (!StringUtils.isEmpty(cohortName)) {
                 name.append(cohortName);
             }
-            if (!StringUtils.isEmpty(topicURLRoot)) {
-                name.append("." + topicURLRoot);
-            }
+            name.append("." + TOPIC_URL_ROOT);
             endPoint.setDisplayName(name.toString());
             endPoint.setQualifiedName(name.toString());
             endPoint.setGUID(UUID.randomUUID().toString());
